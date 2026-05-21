@@ -157,7 +157,57 @@
         #closeModalBtn { background: #d9cfc0; color: #2c241a; }
         #closeModalBtn:hover { background: #bfb09b; }
         
-        /* Campos de ancho y alto más compactos */
+        /* ========== ESTILOS PARA COMENTARIOS ========== */
+        .comentarios-container {
+            margin-top: 1rem;
+        }
+        .comentario-item {
+            background: #fef9f2;
+            border-radius: 1.2rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid #f3b04b;
+        }
+        .comentario-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            color: #a5662a;
+        }
+        .comentario-nombre { font-weight: 700; color: #c27e44; }
+        .comentario-fecha { font-style: italic; }
+        .comentario-texto { margin-top: 6px; line-height: 1.4; }
+        .form-comentario {
+            background: #fffcf5;
+            padding: 1.2rem;
+            border-radius: 1.2rem;
+            margin-top: 1.5rem;
+            border: 1px solid #ffddb0;
+        }
+        .form-comentario input, .form-comentario textarea {
+            width: 100%;
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            border-radius: 1rem;
+            border: 1px solid #e2cfb5;
+            font-family: inherit;
+        }
+        .form-comentario button {
+            background: #c27e44;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+        .form-comentario button:hover { background: #a5642f; }
+        
         .size-row { display: flex; gap: 16px; margin: 8px 0; }
         .size-row > div { flex: 1; }
         
@@ -227,6 +277,7 @@
             <option value="cita">💬 Cita destacada</option>
             <option value="beneficiosGrid">🌟 Beneficios (grid)</option>
             <option value="abeja">🐝 Bloque Abeja</option>
+            <option value="comentarios">💬 Sección de Comentarios</option>
         </select>
         <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
             <button id="confirmAddBlockBtn" style="background:#5c9e7b; color:white; border:none; padding:8px 18px; border-radius:40px;">Agregar</button>
@@ -236,9 +287,7 @@
 </div>
 
 <script>
-    // ===================== CONFIGURACIÓN POR DEFECTO =====================
-    // Se reemplaza el contenido original con el respaldo "blog_config (2).json"  
-    // manteniendo toda la funcionalidad intacta
+    // ===================== CONFIGURACIÓN POR DEFECTO (incluye bloque de comentarios al final) =====================
     const DEFAULT_BLOCKS = [
   {
     "type": "abeja",
@@ -498,6 +547,16 @@
     "height": "auto",
     "alignment": "center",
     "styleClass": ""
+  },
+  {
+    "type": "comentarios",
+    "content": {
+      "titulo": "💬 Deja tu comentario"
+    },
+    "width": "100%",
+    "height": "auto",
+    "alignment": "left",
+    "styleClass": "style-round-card"
   }
 ];
 
@@ -514,19 +573,64 @@
     const iconList = ['fa-heart','fa-star','fa-smile','fa-grin-hearts','fa-hand-peace','fa-thumbs-up','fa-lightbulb','fa-leaf','fa-tree','fa-crown','fa-seedling','fa-paintbrush','fa-quote-left','fa-brain','fa-smile-wink','fa-comment-dots','fa-hand-holding-heart'];
     const emojiList = ['😊','❤️','👍','🎉','✨','🌟','💡','🐝','🌱','🤗','😂','😍','🔥','💪','🙏','😢','🥰','😎','⭐','🌈','🍎','⚡','💎','🔔'];
 
+    // Funciones para comentarios
+    function getComentarios() {
+        const stored = localStorage.getItem('blog_comments_data');
+        return stored ? JSON.parse(stored) : [];
+    }
+    function saveComentario(nombre, texto) {
+        const comentarios = getComentarios();
+        comentarios.push({
+            id: Date.now(),
+            nombre: nombre.trim(),
+            texto: texto.trim(),
+            fecha: new Date().toLocaleString()
+        });
+        localStorage.setItem('blog_comments_data', JSON.stringify(comentarios));
+        // Re-renderizar solo el bloque de comentarios (para no perder la posición de edición)
+        renderBlog();
+    }
+    function renderComentariosBlock(block) {
+        const contenedor = document.createElement('div');
+        contenedor.className = 'comentarios-container';
+        const titulo = block.content.titulo || '💬 Deja tu comentario';
+        contenedor.innerHTML = `<h3 style="color:#C57338; margin-bottom:1rem;"><i class="fas fa-comments"></i> ${escapeHtml(titulo)}</h3><div id="comentariosLista"></div><div class="form-comentario"><input type="text" id="comentarioNombre" placeholder="Tu nombre" required><textarea id="comentarioTexto" rows="3" placeholder="Escribe tu comentario..."></textarea><button id="enviarComentarioBtn">Enviar comentario</button></div>`;
+        const listaDiv = contenedor.querySelector('#comentariosLista');
+        const comentarios = getComentarios();
+        if(comentarios.length === 0) {
+            listaDiv.innerHTML = '<p style="color:#a0825a;">Sé el primero en comentar ✨</p>';
+        } else {
+            comentarios.slice().reverse().forEach(c => {
+                const item = document.createElement('div');
+                item.className = 'comentario-item';
+                item.innerHTML = `<div class="comentario-header"><span class="comentario-nombre"><i class="fas fa-user"></i> ${escapeHtml(c.nombre)}</span><span class="comentario-fecha"><i class="far fa-clock"></i> ${escapeHtml(c.fecha)}</span></div><div class="comentario-texto">${escapeHtml(c.texto).replace(/\n/g, '<br>')}</div>`;
+                listaDiv.appendChild(item);
+            });
+        }
+        const btn = contenedor.querySelector('#enviarComentarioBtn');
+        btn.onclick = () => {
+            const nombre = document.getElementById('comentarioNombre').value.trim();
+            const texto = document.getElementById('comentarioTexto').value.trim();
+            if(!nombre || !texto) { alert('Por favor completa tu nombre y comentario.'); return; }
+            saveComentario(nombre, texto);
+            document.getElementById('comentarioNombre').value = '';
+            document.getElementById('comentarioTexto').value = '';
+        };
+        return contenedor;
+    }
+
     function saveBlocks() { localStorage.setItem('blogBlocksFlex', JSON.stringify(currentBlocks)); }
     function loadBlocks() {
         const stored = localStorage.getItem('blogBlocksFlex');
         if(stored) {
             currentBlocks = JSON.parse(stored);
-            // Normalización por si faltan campos
             currentBlocks = currentBlocks.map(b => {
                 if (!b.alignment) b.alignment = 'left';
                 if (b.type === 'abeja' && b.alignment === 'left') b.alignment = 'right';
                 if (b.type === 'waveHeader' && (!b.content || !b.content.mainTitle)) b.content = { mainTitle: 'Comunicación Afectiva<br>en la Primera Infancia' };
                 if (b.type === 'footer' && (!b.content || !b.content.leftText)) b.content = { leftText: '2026 · Blog Académico «ABEJITAS INFORMATIVAS» · Basado en evidencia de UNICEF, OMS y Harvard', rightText: 'blog creado por Grupo 3 (Habilidades Comunicativas)' };
-                // Si hay algún ítem de listaConsejos que sea string se transforma (pero el JSON ya tiene objetos)
                 if (b.type === 'listaConsejos' && b.content.items && b.content.items.length && typeof b.content.items[0] === 'string') b.content.items = b.content.items.map(t => ({ icon: 'fa-heart', html: t }));
+                if (b.type === 'comentarios' && (!b.content || !b.content.titulo)) b.content = { titulo: '💬 Deja tu comentario' };
                 return b;
             });
         } else currentBlocks = JSON.parse(JSON.stringify(DEFAULT_BLOCKS));
@@ -559,6 +663,7 @@
             case 'listaConsejos': let lh = `<ul class="lista-consejos">`; block.content.items.forEach(i => { lh += `<li><i class="fas ${i.icon || 'fa-heart'}"></i> ${i.html}</li>`; }); lh += `</ul>`; contentDiv.innerHTML = lh; break;
             case 'cita': contentDiv.innerHTML = `<div class="cita-destacada"><i class="fas ${block.content.icon}"></i> ${escapeHtml(block.content.text)}</div>`; break;
             case 'footer': contentDiv.innerHTML = `<div class="footer-blog"><div><i class="far fa-copyright"></i> ${block.content.leftText}</div><div><i class="fas fa-pencil-alt"></i> ${block.content.rightText}</div></div>`; break;
+            case 'comentarios': contentDiv.appendChild(renderComentariosBlock(block)); break;
             default: contentDiv.innerHTML = `<p>Bloque nuevo</p>`;
         }
         wrapper.appendChild(contentDiv);
@@ -597,6 +702,7 @@
         else if(tipo === 'cita') nuevo = { type: 'cita', content: { text: 'Nueva cita', icon: 'fa-quote-left' }, width: '100%', height: 'auto', alignment: 'left', styleClass: 'style-glow' };
         else if(tipo === 'beneficiosGrid') nuevo = { type: 'beneficiosGrid', content: { beneficios: [{ icono: 'fas fa-heart', titulo: 'Beneficio nuevo', desc: 'Descripción' }] }, width: '100%', height: 'auto', alignment: 'left', styleClass: '' };
         else if(tipo === 'abeja') nuevo = { type: 'abeja', content: { text: 'la abeja informativa' }, width: 'auto', height: 'auto', alignment: 'right', styleClass: '' };
+        else if(tipo === 'comentarios') nuevo = { type: 'comentarios', content: { titulo: '💬 Deja tu comentario' }, width: '100%', height: 'auto', alignment: 'left', styleClass: 'style-round-card' };
         else return;
         currentBlocks.push(nuevo); saveBlocks(); renderBlog();
     }
@@ -604,7 +710,7 @@
     cancelAddBlockBtn.onclick = () => blockTypeModal.style.display = 'none';
     blockTypeModal.onclick = (e) => { if(e.target === blockTypeModal) blockTypeModal.style.display = 'none'; };
 
-    // Funciones de emojis y editor iguales 
+    // Funciones de emojis y editor (sin cambios)
     function attachSimpleEmojiAndLink(editorContainer, contentDiv) {
         let toolbar = editorContainer.querySelector('.rich-text-toolbar');
         if (!toolbar) return;
@@ -698,6 +804,7 @@
         else if (block.type === 'imagenCentral') html = `<label>URL imagen:</label><input id="field_src" value="${block.content.src}">`;
         else if (block.type === 'listaConsejos') { currentItemsList = [...(block.content.items || [])]; html = `<div id="consejosContainer"></div><button id="addNewItemBtn" class="add-item-btn">+ Agregar consejo</button>`; }
         else if (block.type === 'beneficiosGrid') { currentBeneficiosList = [...(block.content.beneficios || [])]; html = `<div id="beneficiosContainer"></div><button id="addNewBeneficioBtn" class="add-item-btn">+ Agregar beneficio</button>`; }
+        else if (block.type === 'comentarios') html = `<label>Título del bloque:</label><input id="comentarios_titulo" value="${escapeHtml(block.content.titulo)}">`;
         else html = `<p>No editable</p>`;
         dynamicFieldsDiv.innerHTML = html;
         if (block.type === 'introTexto' || block.type === 'parrafo') window.currentRichContent = initRichTextEditor('richTextEditor', block.content.html || '');
@@ -719,6 +826,7 @@
         else if (block.type === 'imagenCentral') block.content.src = document.getElementById('field_src')?.value;
         else if (block.type === 'listaConsejos') block.content.items = [...currentItemsList];
         else if (block.type === 'beneficiosGrid') block.content.beneficios = [...currentBeneficiosList];
+        else if (block.type === 'comentarios') block.content.titulo = document.getElementById('comentarios_titulo')?.value || '💬 Deja tu comentario';
         saveBlocks(); renderBlog(); modal.style.display = 'none'; currentEditingBlockIndex = null; window.currentRichContent = null;
     }
     function changeBlockStyle(idx) { let s = prompt('Estilo (style-round-card, style-square-card, style-floating, style-glow, vacío):', currentBlocks[idx].styleClass || ''); if(s!==null) { currentBlocks[idx].styleClass = s; saveBlocks(); renderBlog(); } }
